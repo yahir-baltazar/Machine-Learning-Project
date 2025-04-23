@@ -1,0 +1,213 @@
+---
+title: "115 Homework 3"
+author: "Yahir B"
+date: "2025-02-21"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. Posterior Credible Intervals
+
+Part a)
+
+```{r}
+library(ggplot2)
+
+shape <- 4
+rate <- 1
+
+
+lambda_vals <- seq(0, 15, length.out = 1000)
+posterior_density <- dgamma(lambda_vals, shape = shape, rate = rate)
+
+
+lower_bound <- qgamma(0.025, shape = shape, rate = rate)
+upper_bound <- qgamma(0.975, shape = shape, rate = rate)
+middle_95 <- c(lower_bound, upper_bound)
+
+ggplot(data = data.frame(lambda = lambda_vals, density = posterior_density), aes(x = lambda, y = density)) +
+  geom_line(color = "blue") +
+  geom_area(data = subset(data.frame(lambda = lambda_vals, density = posterior_density), 
+                          lambda >= lower_bound & lambda <= upper_bound), 
+            aes(x = lambda, y = density), fill = "blue", alpha = 0.3) +
+  geom_vline(xintercept = lower_bound, linetype = "dashed", color = "red") +
+  geom_vline(xintercept = upper_bound, linetype = "dashed", color = "red") +
+  labs(title = "Posterior Distribution: Gamma(4,1)",
+       x = expression(lambda), y = "Density") +
+  theme_minimal()
+
+print(middle_95)
+
+```
+
+Part b)
+
+Given the observed data and our prior assumptions, we are 95% confident that our lambda falls within this interval. In frequency statistis if we were to repeat the experiment many times, 95% of the constructed intervals would contain the true lambda parameter. Likewise, in frequency statistics, the confidence interval is based on sample data with no prior, while basian uses a prior.
+
+Part c)
+
+```{r}
+#install.packages('HDInterval')
+library(HDInterval)
+
+shape <- 4
+rate <- 1
+
+#95% credible interval
+middle_95 <- qgamma(c(0.025, 0.975), shape, rate)
+middle_95
+samples <- rgamma(10000, shape, rate)
+hdi_region <- hdi(samples, credMass = 0.95)
+hdi_region
+curve(dgamma(x, shape, rate), from = 0, to = 15, col = "blue", lwd = 2, ylab = "Density",
+      main = "Gamma(4,1) Posterior with 95% Credible Intervals")
+
+polygon(c(middle_95, rev(middle_95)), c(0, 0, dgamma(middle_95, shape, rate)), col = rgb(0,0,1,0.3), border = NA)
+
+polygon(c(hdi_region, rev(hdi_region)), c(0, 0, dgamma(hdi_region, shape, rate)), col = rgb(0,1,0,0.3), border = NA)
+
+abline(v = middle_95, col = "red", lty = 2)  # Middle 95% in red
+abline(v = hdi_region, col = "darkgreen", lty = 2)  # HPD interval in green
+
+print(middle_95)
+print(hdi_region)
+
+total = qgamma(0.975, shape, rate) -qgamma(0.025, shape, rate)
+total
+
+hpd_length <- hdi_region[2] - hdi_region[1]
+hpd_length
+```
+
+**part d)**
+
+Looking at the graph notice that the red borders (the middle 95% credible interval) is slightly larger than the green boarders (HPD 95% credible interval). Subtracting the bounds of the 95% credible interval we have that the length is 7.677408. The length of the HPD interval is 7.10965.
+
+### 2. Cancer Research in Laboratory Mice 
+
+part a)
+
+```{r}
+y_A <- c(12, 9, 12, 14, 13, 13, 15, 8, 15, 6)
+y_B <- c(11, 11, 10, 9, 9, 8, 7, 10, 6, 8, 8, 9, 7)
+# store your probabilities in a vector called "pr" for testing.
+
+# Prior parameters for θA ~ Gamma(120, 10) and θB ~ Gamma(12, 1)
+shape_A <- 120 + sum(y_A)  
+rate_A <- 10 + length(y_A) 
+
+shape_B <- 12 + sum(y_B)  
+rate_B <- 1 + length(y_B)  
+
+# Monte Carlo sampling
+set.seed(115)
+n_samples <- 10000
+theta_A_samples <- rgamma(n_samples, shape_A, rate_A)
+theta_B_samples <- rgamma(n_samples, shape_B, rate_B)
+
+#P(θB < θA)
+pr <- mean(theta_B_samples < theta_A_samples)
+
+
+print(pr)
+```
+
+part b)
+
+```{r}
+y_A <- c(12, 9, 12, 14, 13, 13, 15, 8, 15, 6)
+# store your probabilities in a vector called "ppr" for testing.
+# YOUR CODE HERE
+
+# Priors paraneters for θA ~ Gamma(120, 10) and θB ~ Gamma(12, 1)
+shape_A <- 120 + sum(y_A)  
+rate_A <- 10 + length(y_A) 
+
+shape_B <- 12 + sum(y_B)  
+rate_B <- 1 + length(y_B)  
+
+# Monte Carlo sampling
+set.seed(115)  
+n_samples <- 10000
+theta_A_samples <- rgamma(n_samples, shape_A, rate_A)
+theta_B_samples <- rgamma(n_samples, shape_B, rate_B)
+
+yA_pred <- rpois(n_samples, theta_A_samples)
+yB_pred <- rpois(n_samples, theta_B_samples)
+
+# YOUR CODE HERE
+ppr <- mean(yB_pred < yA_pred)
+print(ppr)
+```
+
+**part c)**
+
+Event {θB \< θA} means that the posterior probability that the tumor rate for Type B (θB) is lower than the tumor rate for Type A mice (θA). Event {Y\~B​\<Y\~A​} means that the probability of future tumor counts for Type B mice is less than the probability for Type A mice.
+
+### 3. Posterior Predictive Model Checking
+
+**part a)**
+
+If the Poisson Model was a reasonable one, a typical value of t^(s)^ would be aprroximately 1. This is because in a poisson distribution we have that the sample mean and sample variance are equal. Using the definition of t\^(s) , we would have that quotient would be equal or close to one.
+
+**part b)**
+
+```{r}
+y_B <- c(11, 11, 10, 9, 9, 8, 7, 10, 6, 8, 8, 9, 7)
+
+# generate posterior predictive datasets and find test statistic for each one
+
+mean_yB <- mean(y_B)
+var_yB <- var(y_B)
+t_observed <- mean_yB / var_yB
+
+
+set.seed(511)  
+
+num_samples <- 1000
+
+t_values <- numeric(num_samples)
+
+for (s in 1:num_samples) {
+  theta_B_s <- rgamma(1, shape = 12 + sum(y_B), rate = 1 + length(y_B)) 
+  
+  # Generate a posterior predictive dataset y_B^(s)
+  y_B_s <- rpois(length(y_B), lambda = theta_B_s)
+  
+  # Compute the test statistic t(s)
+  mean_yB_s <- mean(y_B_s)
+  var_yB_s <- var(y_B_s)
+  t_values[s] <- mean_yB_s / var_yB_s
+}
+
+# create the histogram, adding a vertical line at the observed value of the test statistic
+hist(t_values, breaks = 30, main = "Histogram of Posterior Predictive Test Statistics", 
+     xlab = "Test Statistic (t(s))", col = "lightblue", border = "black")
+
+abline(v = t_observed, col = "red", lwd = 2)
+
+fraction_larger <- mean(t_values > t_observed)
+
+print(fraction_larger)
+print(t_observed)
+
+```
+
+Notice that the observed test statistic has a value of 3.625668 and the posterior test statistic is 0.005. Since the difference between both test statistics is very significant hence the Poisson model may not be a good fit for the data.
+
+**part c)**
+
+To check whether the data is overdispersed or underdispersed, we first calculate the mean and variance of Y_B and compare. overdispersed.
+
+```{r}
+mean(y_B)
+var(y_B)
+```
+
+Since the mean of y_B is larger than the variance of y_B, this suggests that the data is underdispersed.
